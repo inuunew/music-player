@@ -4,7 +4,7 @@ import { Play, Pause, SkipBack, SkipForward, Search, Volume2, Volume1, VolumeX, 
 // ⚠️ Ganti dengan API key kamu sendiri dari Google Cloud Console (YouTube Data API v3).
 // Karena ini dibundle jadi JS publik, WAJIB restrict key ini ke domain kamu:
 // Google Cloud Console → Credentials → key ini → Application restrictions → Websites → masukin domain Vercel-mu.
-const YOUTUBE_API_KEY = "TARUH_API_KEY_KAMU_DI_SINI";
+const YOUTUBE_API_KEY = "AIzaSyDsvBGLfOX4cg8aDl_U6BdMy2Sm_OTodME";
 
 const QUICK_PICKS = ["Tulus", "Raisa", "Lofi Chill", "Pop Hits", "Indie Rock", "Jazz Malam"];
 
