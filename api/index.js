@@ -1,5 +1,6 @@
 import express from 'express';
-import { search, info, lyrics, related, download } from './scraper.js';
+// Hapus fungsi 'download' dari import karena sudah digantikan oleh API Cuki
+import { search, info, lyrics, related } from './scraper.js';
 
 const app = express();
 
@@ -31,55 +32,43 @@ app.get('/api/related', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// Endpoint Download dengan Auto-Fallback Piped API untuk memecahkan Signature Cipher
+// Endpoint Download menggunakan API Cuki Digital
 app.get('/api/download', async (req, res) => {
   const { id } = req.query;
+  if (!id) return res.status(400).json({ error: 'Video ID diperlukan' });
+
+  // Format URL YouTube dari ID
+  const youtubeUrl = `https://youtu.be/${id}`;
+  
+  // Endpoint API Downloader (Cuki Digital)
+  const apiUrl = `https://api.cuki.biz.id/api/downloader/ytmp3?apikey=cuki-x&url=${encodeURIComponent(youtubeUrl)}&quality=192`;
+
   try {
-    let data = await download(id);
-    const hasValidUrl = data?.audioFormats?.some((f) => f.url);
+    const response = await fetch(apiUrl);
+    const result = await response.json();
 
-    // Jika YouTube mengunci cipher (url === null) atau status bukan OK, gunakan Piped API
-    if (!hasValidUrl || data.status !== 'OK') {
-      const pipedInstances = [
-        'https://pipedapi.kavin.rocks',
-        'https://api.piped.yt',
-        'https://pipedapi.mha.fi'
-      ];
-
-      for (const instance of pipedInstances) {
-        try {
-          const pipedRes = await fetch(`${instance}/streams/${id}`);
-          if (pipedRes.ok) {
-            const pipedData = await pipedRes.json();
-            const audioStreams = pipedData.audioStreams || [];
-
-            if (audioStreams.length > 0) {
-              data = {
-                videoId: id,
-                status: 'OK',
-                title: pipedData.title || data.title,
-                artist: pipedData.uploader || data.artist,
-                thumbnail: pipedData.thumbnailUrl || data.thumbnail,
-                audioFormats: audioStreams.map((s) => ({
-                  url: s.url,
-                  mimeType: s.mimeType,
-                  bitrate: s.bitrate,
-                  quality: s.quality
-                }))
-              };
-              break;
-            }
+    // Pastikan status API success dan downloadUrl tersedia
+    if (result.success && result.data?.audio?.download?.downloadUrl) {
+      return res.json({
+        videoId: id,
+        status: 'OK',
+        title: result.data.metadata.title,
+        artist: result.data.metadata.channel || "-",
+        // Mengirimkan format data yang persis seperti ekspektasi frontend app.js
+        audioFormats: [
+          { 
+            url: result.data.audio.download.downloadUrl, 
+            mimeType: 'audio/mp3' 
           }
-        } catch (_) {
-          continue;
-        }
-      }
+        ]
+      });
     }
 
-    res.json(data);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
+    throw new Error('Gagal mendapatkan link audio dari API');
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
+// Export default untuk Vercel Serverless
 export default app;
