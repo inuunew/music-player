@@ -87,16 +87,32 @@ function getThumbnails(renderer) {
 }
 
 function getVideoId(item) {
+  if (!item) return null;
+
+  // 1. Dari flex column
   const flex0 = item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0];
-  const watchId = flex0?.navigationEndpoint?.watchEndpoint?.videoId;
+  let watchId = flex0?.navigationEndpoint?.watchEndpoint?.videoId;
   if (watchId) return watchId;
+
+  // 2. Dari navigationEndpoint langsung
+  watchId = item?.navigationEndpoint?.watchEndpoint?.videoId;
+  if (watchId) return watchId;
+
+  // 3. Dari overlay thumbnail / play button (khusus album & playlist)
+  watchId = item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId;
+  if (watchId) return watchId;
+
+  // 4. Dari menu dropdown
   const items = item?.menu?.menuRenderer?.items || [];
   for (const mi of items) {
-    const id = mi.menuServiceItemRenderer?.serviceEndpoint?.queueAddEndpoint?.queueTarget?.videoId;
+    const id = mi.menuServiceItemRenderer?.serviceEndpoint?.queueAddEndpoint?.queueTarget?.videoId ||
+               mi.menuNavigationItemRenderer?.navigationEndpoint?.watchEndpoint?.videoId;
     if (id) return id;
   }
-  return item?.navigationEndpoint?.watchEndpoint?.videoId || null;
+
+  return null;
 }
+
 
 function getBrowseId(item) {
   const nav = item?.navigationEndpoint?.browseEndpoint?.browseId;
