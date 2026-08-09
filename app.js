@@ -75,6 +75,26 @@ async function loadInfo(browseId, title) {
 
 // 3. FITUR DOWNLOAD (Memutar Lagu)
 async function playSong(videoId, title, thumb) {
+  // Jika videoId kosong/null dari album, lakukan pencarian otomatis berdasarkan judul
+  if (!videoId || videoId === 'null' || videoId === 'undefined') {
+    UI.npTitle.innerText = title;
+    UI.npArtist.innerText = "Mencari ID lagu...";
+    try {
+      const searchRes = await fetch(`/api/search?q=${encodeURIComponent(title)}&filter=songs`);
+      const searchData = await searchRes.json();
+      const foundSong = searchData.results?.find(r => r.videoId);
+      if (foundSong && foundSong.videoId) {
+        videoId = foundSong.videoId;
+      } else {
+        UI.npArtist.innerText = "Gagal menemukan ID lagu ini";
+        return;
+      }
+    } catch (e) {
+      UI.npArtist.innerText = "Gagal memproses lagu";
+      return;
+    }
+  }
+
   UI.npTitle.innerText = title;
   UI.npArtist.innerText = "Memuat audio...";
   if (thumb) UI.npThumb.src = thumb;
@@ -83,7 +103,6 @@ async function playSong(videoId, title, thumb) {
     const res = await fetch(`/api/download?id=${videoId}`);
     const data = await res.json();
 
-    // Cari format audio pertama yang memiliki URL valid
     const validAudio = data.audioFormats?.find(f => f.url);
 
     if (validAudio && validAudio.url) {
@@ -94,7 +113,7 @@ async function playSong(videoId, title, thumb) {
       loadRelated(videoId);
       loadLyrics(videoId);
     } else {
-      UI.npArtist.innerText = "Audio tidak dapat diputar (Situs dibatasi YouTube)";
+      UI.npArtist.innerText = "Gagal memuat audio dari server";
     }
   } catch (e) {
     UI.npArtist.innerText = "Gagal koneksi ke server";
