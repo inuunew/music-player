@@ -77,26 +77,30 @@ async function loadInfo(browseId, title) {
 async function playSong(videoId, title, thumb) {
   UI.npTitle.innerText = title;
   UI.npArtist.innerText = "Memuat audio...";
-  if(thumb) UI.npThumb.src = thumb;
+  if (thumb) UI.npThumb.src = thumb;
 
-  // Fetch audio url
-  const res = await fetch(`/api/download?id=${videoId}`);
-  const data = await res.json();
+  try {
+    const res = await fetch(`/api/download?id=${videoId}`);
+    const data = await res.json();
 
-  if(data.status === 'OK' || data.audioFormats?.length > 0) {
-    // Ambil format audio terbaik
-    const audioUrl = data.audioFormats[0].url; 
-    UI.audioPlayer.src = audioUrl;
-    UI.audioPlayer.play();
-    UI.npArtist.innerText = data.artist || "-";
-    
-    // Jalankan fitur tambahan bersamaan
-    loadRelated(videoId);
-    loadLyrics(videoId);
-  } else {
-    UI.npArtist.innerText = "Gagal memuat audio (Ciphered/Error)";
+    // Cari format audio pertama yang memiliki URL valid
+    const validAudio = data.audioFormats?.find(f => f.url);
+
+    if (validAudio && validAudio.url) {
+      UI.audioPlayer.src = validAudio.url;
+      UI.audioPlayer.play();
+      UI.npArtist.innerText = data.artist || "-";
+      
+      loadRelated(videoId);
+      loadLyrics(videoId);
+    } else {
+      UI.npArtist.innerText = "Audio tidak dapat diputar (Situs dibatasi YouTube)";
+    }
+  } catch (e) {
+    UI.npArtist.innerText = "Gagal koneksi ke server";
   }
 }
+
 
 // 4. FITUR RELATED (Up Next / Antrean)
 async function loadRelated(videoId) {
