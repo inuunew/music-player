@@ -1,12 +1,66 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="id">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Denyut — Music Player</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YT Music Player</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header / Navbar -->
+    <header>
+      <div class="logo">🎵 YT Music Clone</div>
+      <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Cari lagu, artis, album...">
+        <select id="searchFilter">
+          <option value="">Semua</option>
+          <option value="songs">Lagu</option>
+          <option value="artists">Artis</option>
+          <option value="albums">Album</option>
+          <option value="playlists">Playlist</option>
+        </select>
+        <button id="searchBtn">Cari</button>
+      </div>
+    </header>
+
+    <div class="main-layout">
+      <!-- Kiri: Hasil Pencarian / Info Album/Artis -->
+      <section class="content-area" id="contentArea">
+        <h2 id="contentTitle">Selamat Datang!</h2>
+        <div id="loading" class="hidden">Memuat data...</div>
+        <div id="resultsGrid" class="grid"></div>
+      </section>
+
+      <!-- Kanan: Related (Up Next) & Lyrics -->
+      <aside class="sidebar">
+        <div class="tabs">
+          <button class="tab-btn active" onclick="switchTab('related')">Up Next</button>
+          <button class="tab-btn" onclick="switchTab('lyrics')">Lirik</button>
+        </div>
+        <div id="relatedTab" class="tab-content active">
+          <div id="relatedList" class="list">Belum ada antrean.</div>
+        </div>
+        <div id="lyricsTab" class="tab-content hidden">
+          <div id="lyricsContent" class="lyrics-text">Putar lagu untuk melihat lirik.</div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- Bawah: Audio Player -->
+    <footer class="player-bar">
+      <div class="now-playing">
+        <img id="npThumb" src="https://via.placeholder.com/60" alt="Thumbnail">
+        <div class="np-info">
+          <div id="npTitle" class="np-title">-</div>
+          <div id="npArtist" class="np-artist">-</div>
+        </div>
+      </div>
+      <div class="controls">
+        <audio id="audioPlayer" controls></audio>
+      </div>
+    </footer>
+  </div>
+  <script src="app.js"></script>
+</body>
 </html>
