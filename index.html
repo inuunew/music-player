@@ -3,8 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>YT Music Player</title>
-  <link rel="stylesheet" href="style.css">
+  <title>YT Music Clone</title>
+  <style>
+    /* ========== CSS ========== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: #030303; color: #fff; overflow: hidden; }
+    .app-container { display: flex; flex-direction: column; height: 100vh; }
+    
+    header { background: #121212; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #272727; gap: 10px; }
+    .logo { font-size: 16px; font-weight: bold; color: #ff0000; white-space: nowrap; }
+    .search-bar { display: flex; gap: 6px; flex: 1; max-width: 500px; }
+    .search-bar input { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 18px; border: none; background: #222; color: #fff; font-size: 13px; outline: none; }
+    .search-bar select, .search-bar button { padding: 8px 10px; border-radius: 18px; border: none; background: #222; color: #fff; font-size: 12px; cursor: pointer; }
+    .search-bar button { background: #fff; color: #000; font-weight: bold; }
+    
+    .main-layout { display: flex; flex: 1; overflow: hidden; }
+    .content-area { flex: 1; padding: 15px; overflow-y: auto; }
+    .sidebar { width: 320px; background: #0f0f0f; border-left: 1px solid #272727; display: flex; flex-direction: column; }
+    .hidden { display: none !important; }
+    
+    .grid { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; }
+    .card { display: flex; align-items: center; background: #181818; padding: 8px 12px; border-radius: 8px; cursor: pointer; min-width: 0; }
+    .card:hover { background: #282828; }
+    .card img { width: 48px; height: 48px; border-radius: 6px; object-fit: cover; margin-right: 12px; flex-shrink: 0; }
+    .card-info { min-width: 0; flex: 1; }
+    .card-info h4 { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .card-info p { font-size: 12px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+    .badge { background: #ff0000; color: white; padding: 1px 5px; border-radius: 3px; font-size: 9px; margin-right: 4px; }
+    
+    .tabs { display: flex; border-bottom: 1px solid #272727; }
+    .tab-btn { flex: 1; background: none; border: none; color: #888; padding: 12px; cursor: pointer; font-size: 13px; font-weight: 500; }
+    .tab-btn.active { color: #fff; border-bottom: 2px solid #fff; }
+    .tab-content { padding: 15px; overflow-y: auto; flex: 1; }
+    
+    /* CSS Lirik Sinkron */
+    .lyrics-text { white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #ccc; text-align: center; }
+    .lyric-line { transition: color 0.3s, transform 0.3s; cursor: pointer; padding: 4px 0; color: #555; font-size: 15px; }
+    .lyric-line:hover { color: #aaa; }
+    .lyric-line.active { color: #fff; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.4); transform: scale(1.05); }
+    
+    .player-bar { background: #121212; padding: 10px 15px; display: flex; align-items: center; border-top: 1px solid #272727; min-height: 75px; gap: 10px; }
+    .now-playing { display: flex; align-items: center; width: 35%; min-width: 120px; overflow: hidden; }
+    .now-playing img { width: 45px; height: 45px; border-radius: 6px; margin-right: 10px; object-fit: cover; flex-shrink: 0; }
+    .np-info { min-width: 0; flex: 1; }
+    .np-title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .np-artist { font-size: 11px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+    .controls { flex: 1; display: flex; justify-content: flex-end; }
+    audio { width: 100%; max-width: 400px; height: 36px; outline: none; }
+    
+    @media (max-width: 768px) {
+      .sidebar { display: none; }
+      .now-playing { width: 45%; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-container">
@@ -25,14 +76,14 @@
     </header>
 
     <div class="main-layout">
-      <!-- Kiri: Hasil Pencarian / Info Album/Artis -->
+      <!-- Kiri: Hasil Pencarian / Info -->
       <section class="content-area" id="contentArea">
         <h2 id="contentTitle">Selamat Datang!</h2>
         <div id="loading" class="hidden">Memuat data...</div>
         <div id="resultsGrid" class="grid"></div>
       </section>
 
-      <!-- Kanan: Related (Up Next) & Lyrics -->
+      <!-- Kanan: Related & Lyrics -->
       <aside class="sidebar">
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('related')">Up Next</button>
@@ -61,6 +112,274 @@
       </div>
     </footer>
   </div>
-  <script src="app.js"></script>
+
+  <script>
+    /* ========== JAVASCRIPT ========== */
+    const UI = {
+      searchInput: document.getElementById('searchInput'),
+      searchFilter: document.getElementById('searchFilter'),
+      searchBtn: document.getElementById('searchBtn'),
+      contentTitle: document.getElementById('contentTitle'),
+      resultsGrid: document.getElementById('resultsGrid'),
+      loading: document.getElementById('loading'),
+      relatedList: document.getElementById('relatedList'),
+      lyricsContent: document.getElementById('lyricsContent'),
+      npThumb: document.getElementById('npThumb'),
+      npTitle: document.getElementById('npTitle'),
+      npArtist: document.getElementById('npArtist'),
+      audioPlayer: document.getElementById('audioPlayer')
+    };
+
+    let syncedLyrics = [];
+
+    // 1. FITUR SEARCH
+    UI.searchBtn.addEventListener('click', async () => {
+      const query = UI.searchInput.value;
+      const filter = UI.searchFilter.value;
+      if (!query) return;
+
+      setLoading(true);
+      UI.contentTitle.innerText = `Hasil pencarian: ${query}`;
+      
+      const res = await fetch(`/api/search?q=${encodeURIComponent(query)}&filter=${filter}`);
+      const data = await res.json();
+      
+      UI.resultsGrid.innerHTML = '';
+      data.results.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img src="${item.thumbnails[0] || 'https://via.placeholder.com/50'}" alt="thumb">
+          <div class="card-info">
+            <h4><span class="badge">${item.resultType?.toUpperCase() || 'ITEM'}</span> ${item.title}</h4>
+            <p>${item.subtitle || ''}</p>
+          </div>
+        `;
+        
+        card.onclick = () => {
+          if (item.videoId) playSong(item.videoId, item.title, item.thumbnails[0]);
+          else if (item.browseId) loadInfo(item.browseId, item.title);
+        };
+        
+        UI.resultsGrid.appendChild(card);
+      });
+      setLoading(false);
+    });
+
+    // 2. FITUR INFO (Album / Artis / Playlist)
+    async function loadInfo(browseId, title) {
+      setLoading(true);
+      UI.contentTitle.innerText = `Info: ${title}`;
+      UI.resultsGrid.innerHTML = '';
+
+      const res = await fetch(`/api/info?id=${browseId}`);
+      const data = await res.json();
+      
+      const tracks = data.tracks || data.songs || [];
+      tracks.forEach(track => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <div class="card-info" style="margin-left: 10px;">
+            <h4>${track.title}</h4>
+            <p>${track.artists?.map(a => a.name).join(', ') || ''} • ${track.duration || ''}</p>
+          </div>
+        `;
+        card.onclick = () => playSong(track.videoId, track.title, data.thumbnails?.[0]);
+        UI.resultsGrid.appendChild(card);
+      });
+      setLoading(false);
+    }
+
+    // 3. FITUR DOWNLOAD (Memutar Lagu dengan Auto-Fallback)
+    async function playSong(videoId, title, thumb) {
+      // Auto-fallback jika videoId null (biasanya dari album)
+      if (!videoId || videoId === 'null' || videoId === 'undefined') {
+        UI.npTitle.innerText = title;
+        UI.npArtist.innerText = "Mencari ID lagu...";
+        try {
+          const searchRes = await fetch(`/api/search?q=${encodeURIComponent(title)}&filter=songs`);
+          const searchData = await searchRes.json();
+          const foundSong = searchData.results?.find(r => r.videoId);
+          if (foundSong && foundSong.videoId) {
+            videoId = foundSong.videoId;
+          } else {
+            UI.npArtist.innerText = "Gagal menemukan ID lagu ini";
+            return;
+          }
+        } catch (e) {
+          UI.npArtist.innerText = "Gagal memproses pencarian lagu";
+          return;
+        }
+      }
+
+      UI.npTitle.innerText = title;
+      UI.npArtist.innerText = "Memuat audio...";
+      if(thumb) UI.npThumb.src = thumb;
+
+      try {
+        const res = await fetch(`/api/download?id=${videoId}`);
+        const data = await res.json();
+
+        const validAudio = data.audioFormats?.find(f => f.url);
+
+        if (validAudio && validAudio.url) {
+          UI.audioPlayer.src = validAudio.url;
+          UI.audioPlayer.play();
+          UI.npArtist.innerText = data.artist || "-";
+          
+          loadRelated(videoId);
+          loadLyrics(videoId);
+        } else {
+          UI.npArtist.innerText = "Gagal memuat audio (API Error)";
+        }
+      } catch (e) {
+        UI.npArtist.innerText = "Gagal koneksi ke server";
+      }
+    }
+
+    // 4. FITUR RELATED (Up Next)
+    async function loadRelated(videoId) {
+      UI.relatedList.innerHTML = 'Memuat antrean...';
+      const res = await fetch(`/api/related?id=${videoId}`);
+      const data = await res.json();
+      
+      UI.relatedList.innerHTML = '';
+      data.tracks.forEach(track => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <img src="${track.thumbnails?.[0] || 'https://via.placeholder.com/50'}" alt="thumb">
+          <div class="card-info">
+            <h4>${track.title}</h4>
+            <p>${track.artists?.map(a => a.name).join(', ') || ''}</p>
+          </div>
+        `;
+        card.onclick = () => playSong(track.videoId, track.title, track.thumbnails?.[0]);
+        UI.relatedList.appendChild(card);
+      });
+    }
+
+    // 5. FITUR LYRICS (LRC Sync + Fallback)
+    function parseLRC(lrcText) {
+      const lines = lrcText.split('\n');
+      const result = [];
+      lines.forEach(line => {
+        const match = line.match(/\[(\d{2}):(\d{2}\.\d{2,3})\](.*)/);
+        if (match) {
+          const minutes = parseInt(match[1]);
+          const seconds = parseFloat(match[2]);
+          const text = match[3].trim();
+          if (text) result.push({ time: (minutes * 60) + seconds, text });
+        }
+      });
+      return result;
+    }
+
+    async function loadLyrics(videoId) {
+      UI.lyricsContent.innerHTML = 'Mencari lirik sinkron...';
+      syncedLyrics = []; 
+
+      const title = UI.npTitle.innerText;
+      let artist = UI.npArtist.innerText !== "-" ? UI.npArtist.innerText : "";
+      
+      // Bersihkan nama artis dari embel-embel "Topic" dll jika ada
+      artist = artist.replace(" - Topic", "");
+
+      try {
+        // Coba LRCLIB API untuk lirik sinkron (LRC)
+        const lrcRes = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
+        const lrcData = await lrcRes.json();
+
+        if (lrcData && lrcData.syncedLyrics) {
+          syncedLyrics = parseLRC(lrcData.syncedLyrics);
+          
+          UI.lyricsContent.innerHTML = '';
+          syncedLyrics.forEach((line, index) => {
+            const p = document.createElement('div');
+            p.className = 'lyric-line';
+            p.id = `lyric-${index}`;
+            p.innerText = line.text;
+            p.onclick = () => { UI.audioPlayer.currentTime = line.time; UI.audioPlayer.play(); };
+            UI.lyricsContent.appendChild(p);
+          });
+          return; // Berhenti jika sukses
+        }
+      } catch (e) {
+        console.log("LRCLIB tidak menemukan lirik, mencoba fallback bawaan...");
+      }
+
+      // Fallback ke lirik statis dari API bawaan scraper
+      try {
+        const res = await fetch(`/api/lyrics?id=${videoId}`);
+        const data = await res.json();
+        
+        if (data.lyrics) {
+          UI.lyricsContent.innerHTML = `<div style="text-align:left;">${data.lyrics.replace(/\n/g, '<br>')}</div><br><small>Sumber: ${data.source || 'YT Music'}</small>`;
+        } else {
+          UI.lyricsContent.innerHTML = 'Lirik tidak ditemukan untuk lagu ini.';
+        }
+      } catch (e) {
+        UI.lyricsContent.innerHTML = 'Gagal memuat lirik.';
+      }
+    }
+
+    // 6. AUDIO PLAYER EVENT: Sinkronisasi lirik yang menyala
+    UI.audioPlayer.addEventListener('timeupdate', () => {
+      if (syncedLyrics.length === 0) return;
+
+      const currentTime = UI.audioPlayer.currentTime;
+      let activeIndex = -1;
+      
+      for (let i = 0; i < syncedLyrics.length; i++) {
+        if (currentTime >= syncedLyrics[i].time) {
+          activeIndex = i;
+        } else {
+          break;
+        }
+      }
+
+      if (activeIndex !== -1) {
+        const allLines = document.querySelectorAll('.lyric-line');
+        allLines.forEach(line => line.classList.remove('active'));
+        
+        const activeLine = document.getElementById(`lyric-${activeIndex}`);
+        if (activeLine && !activeLine.classList.contains('active')) {
+          activeLine.classList.add('active');
+          activeLine.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    });
+
+    // UTILITIES
+    function setLoading(isLoading) {
+      if(isLoading) {
+        UI.loading.classList.remove('hidden');
+        UI.resultsGrid.classList.add('hidden');
+      } else {
+        UI.loading.classList.add('hidden');
+        UI.resultsGrid.classList.remove('hidden');
+      }
+    }
+
+    function switchTab(tabName) {
+      const tabs = document.querySelectorAll('.tab-btn');
+      tabs.forEach(t => t.classList.remove('active'));
+      document.getElementById('relatedTab').classList.add('hidden');
+      document.getElementById('lyricsTab').classList.add('hidden');
+      
+      if(tabName === 'related') {
+        tabs[0].classList.add('active');
+        document.getElementById('relatedTab').classList.remove('hidden');
+      } else {
+        tabs[1].classList.add('active');
+        document.getElementById('lyricsTab').classList.remove('hidden');
+      }
+    }
+
+    UI.searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') UI.searchBtn.click();
+    });
+  </script>
 </body>
 </html>
