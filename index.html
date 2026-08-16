@@ -38,7 +38,7 @@
     
     /* CSS Lirik Sinkron */
     .lyrics-text { white-space: pre-wrap; font-size: 14px; line-height: 1.8; color: #ccc; text-align: center; }
-    .lyric-line { transition: color 0.3s, transform 0.3s; cursor: pointer; padding: 4px 0; color: #555; font-size: 15px; }
+    .lyric-line { transition: color 0.3s, transform 0.3s; cursor: pointer; padding: 6px 0; color: #555; font-size: 15px; }
     .lyric-line:hover { color: #aaa; }
     .lyric-line.active { color: #fff; font-size: 18px; font-weight: bold; text-shadow: 0 0 10px rgba(255, 255, 255, 0.4); transform: scale(1.05); }
     
@@ -53,27 +53,23 @@
     
     /* ========== RESPONSIVE MOBILE FIX ========== */
     @media (max-width: 768px) {
-      /* 1. Tata ulang layout agar lirik muncul di bawah pencarian (bukan di-hidden) */
       .main-layout { flex-direction: column; }
       .content-area { flex: 1; border-bottom: 1px solid #272727; }
       .sidebar { width: 100%; height: 45%; border-left: none; }
-      
-      /* 2. Susun Player Bar agar Audio Element tidak tergencet */
       .player-bar { flex-direction: column; align-items: stretch; padding: 12px 15px; gap: 10px; height: auto; }
       .now-playing { width: 100%; }
       .controls { width: 100%; }
-      audio { max-width: 100%; width: 100%; } /* Audio ambil lebar penuh */
+      audio { max-width: 100%; width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="app-container">
-    <!-- Header / Navbar -->
     <header>
       <div class="logo">🎵 YT Music Clone</div>
       <div class="search-bar">
         <input type="text" id="searchInput" placeholder="Cari lagu, artis, album...">
-        <select id="searchFilter" class="hidden"> <!-- Disembunyikan di HP biar bar pencarian lebih panjang, bisa dihapus class hiddennya kalo mau -->
+        <select id="searchFilter" class="hidden">
           <option value="">Semua</option>
           <option value="songs">Lagu</option>
           <option value="artists">Artis</option>
@@ -85,14 +81,12 @@
     </header>
 
     <div class="main-layout">
-      <!-- Kiri/Atas: Hasil Pencarian / Info -->
       <section class="content-area" id="contentArea">
         <h2 id="contentTitle">Selamat Datang!</h2>
         <div id="loading" class="hidden">Memuat data...</div>
         <div id="resultsGrid" class="grid"></div>
       </section>
 
-      <!-- Kanan/Bawah: Related & Lyrics -->
       <aside class="sidebar">
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('related')">Up Next</button>
@@ -107,7 +101,6 @@
       </aside>
     </div>
 
-    <!-- Bawah: Audio Player -->
     <footer class="player-bar">
       <div class="now-playing">
         <img id="npThumb" src="https://via.placeholder.com/60" alt="Thumbnail">
@@ -175,7 +168,7 @@
       setLoading(false);
     });
 
-    // 2. FITUR INFO (Album / Artis / Playlist)
+    // 2. FITUR INFO
     async function loadInfo(browseId, title) {
       setLoading(true);
       UI.contentTitle.innerText = `Info: ${title}`;
@@ -200,9 +193,8 @@
       setLoading(false);
     }
 
-    // 3. FITUR DOWNLOAD (Memutar Lagu dengan Auto-Fallback)
+    // 3. FITUR DOWNLOAD (Memutar Lagu & MEDIA SESSION BACKGROUND PLAY)
     async function playSong(videoId, title, thumb) {
-      // Auto-fallback jika videoId null
       if (!videoId || videoId === 'null' || videoId === 'undefined') {
         UI.npTitle.innerText = title;
         UI.npArtist.innerText = "Mencari ID lagu...";
@@ -210,16 +202,9 @@
           const searchRes = await fetch(`/api/search?q=${encodeURIComponent(title)}&filter=songs`);
           const searchData = await searchRes.json();
           const foundSong = searchData.results?.find(r => r.videoId);
-          if (foundSong && foundSong.videoId) {
-            videoId = foundSong.videoId;
-          } else {
-            UI.npArtist.innerText = "Gagal menemukan ID lagu ini";
-            return;
-          }
-        } catch (e) {
-          UI.npArtist.innerText = "Gagal memproses pencarian lagu";
-          return;
-        }
+          if (foundSong && foundSong.videoId) videoId = foundSong.videoId;
+          else return;
+        } catch (e) { return; }
       }
 
       UI.npTitle.innerText = title;
@@ -229,25 +214,37 @@
       try {
         const res = await fetch(`/api/download?id=${videoId}`);
         const data = await res.json();
-
         const validAudio = data.audioFormats?.find(f => f.url);
 
         if (validAudio && validAudio.url) {
           UI.audioPlayer.src = validAudio.url;
           UI.audioPlayer.play();
-          UI.npArtist.innerText = data.artist || "-";
+          
+          const artistName = data.artist && data.artist !== "-" ? data.artist : "Tidak diketahui";
+          UI.npArtist.innerText = artistName;
+          
+          // 🔥 PERBAIKAN: MEDIA SESSION API AGAR TETAP HIDUP DI BACKGROUND 🔥
+          if ('mediaSession' in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+              title: title,
+              artist: artistName,
+              artwork: [
+                { src: thumb || 'https://via.placeholder.com/512', sizes: '512x512', type: 'image/jpeg' }
+              ]
+            });
+          }
           
           loadRelated(videoId);
           loadLyrics(videoId);
         } else {
-          UI.npArtist.innerText = "Gagal memuat audio (API Error)";
+          UI.npArtist.innerText = "Gagal memuat audio";
         }
       } catch (e) {
-        UI.npArtist.innerText = "Gagal koneksi ke server";
+        UI.npArtist.innerText = "Gagal koneksi server";
       }
     }
 
-    // 4. FITUR RELATED (Up Next)
+    // 4. FITUR RELATED
     async function loadRelated(videoId) {
       UI.relatedList.innerHTML = 'Memuat antrean...';
       const res = await fetch(`/api/related?id=${videoId}`);
@@ -269,7 +266,7 @@
       });
     }
 
-    // 5. FITUR LYRICS (LRC Sync + Fallback)
+    // 5. FITUR LYRICS (SMART SEARCH LRC Sync + Fallback)
     function parseLRC(lrcText) {
       const lines = lrcText.split('\n');
       const result = [];
@@ -290,17 +287,23 @@
       syncedLyrics = []; 
 
       const title = UI.npTitle.innerText;
-      let artist = UI.npArtist.innerText !== "-" ? UI.npArtist.innerText : "";
+      let artist = UI.npArtist.innerText !== "-" && UI.npArtist.innerText !== "Tidak diketahui" ? UI.npArtist.innerText : "";
       
-      // Bersihkan nama artis
+      // 🔥 PERBAIKAN PENCARIAN LIRIK: Bersihkan judul dari (Official Video), dll 🔥
       artist = artist.replace(" - Topic", "");
+      const cleanTitle = title.replace(/\([^)]*\)/g, '').replace(/\[[^\]]*\]/g, '').trim();
 
       try {
-        const lrcRes = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
+        // Menggunakan endpoint /api/search agar lebih pintar menebak lagu meski nama artis kosong
+        const searchQuery = artist ? `${cleanTitle} ${artist}` : cleanTitle;
+        const lrcRes = await fetch(`https://lrclib.net/api/search?q=${encodeURIComponent(searchQuery)}`);
         const lrcData = await lrcRes.json();
 
-        if (lrcData && lrcData.syncedLyrics) {
-          syncedLyrics = parseLRC(lrcData.syncedLyrics);
+        // Cari hasil pertama yang benar-benar punya lirik sinkron (syncedLyrics)
+        const match = lrcData.find(item => item.syncedLyrics);
+
+        if (match && match.syncedLyrics) {
+          syncedLyrics = parseLRC(match.syncedLyrics);
           
           UI.lyricsContent.innerHTML = '';
           syncedLyrics.forEach((line, index) => {
@@ -311,13 +314,13 @@
             p.onclick = () => { UI.audioPlayer.currentTime = line.time; UI.audioPlayer.play(); };
             UI.lyricsContent.appendChild(p);
           });
-          return; 
+          return; // Lirik sinkron berhasil!
         }
       } catch (e) {
-        console.log("LRCLIB tidak menemukan lirik, mencoba fallback bawaan...");
+        console.log("LRCLIB pencarian gagal, menggunakan lirik bawaan...");
       }
 
-      // Fallback lirik statis
+      // Fallback lirik statis jika lirik sinkron tidak ditemukan
       try {
         const res = await fetch(`/api/lyrics?id=${videoId}`);
         const data = await res.json();
@@ -332,7 +335,7 @@
       }
     }
 
-    // 6. AUDIO PLAYER EVENT: Sinkronisasi lirik
+    // 6. AUDIO PLAYER EVENT: Sinkronisasi lirik menyala
     UI.audioPlayer.addEventListener('timeupdate', () => {
       if (syncedLyrics.length === 0) return;
 
@@ -340,7 +343,8 @@
       let activeIndex = -1;
       
       for (let i = 0; i < syncedLyrics.length; i++) {
-        if (currentTime >= syncedLyrics[i].time) {
+        // Toleransi waktu maju sedikit (0.3 detik) agar lirik menyala lebih responsif
+        if (currentTime >= syncedLyrics[i].time - 0.3) {
           activeIndex = i;
         } else {
           break;
