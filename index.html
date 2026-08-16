@@ -51,9 +51,18 @@
     .controls { flex: 1; display: flex; justify-content: flex-end; }
     audio { width: 100%; max-width: 400px; height: 36px; outline: none; }
     
+    /* ========== RESPONSIVE MOBILE FIX ========== */
     @media (max-width: 768px) {
-      .sidebar { display: none; }
-      .now-playing { width: 45%; }
+      /* 1. Tata ulang layout agar lirik muncul di bawah pencarian (bukan di-hidden) */
+      .main-layout { flex-direction: column; }
+      .content-area { flex: 1; border-bottom: 1px solid #272727; }
+      .sidebar { width: 100%; height: 45%; border-left: none; }
+      
+      /* 2. Susun Player Bar agar Audio Element tidak tergencet */
+      .player-bar { flex-direction: column; align-items: stretch; padding: 12px 15px; gap: 10px; height: auto; }
+      .now-playing { width: 100%; }
+      .controls { width: 100%; }
+      audio { max-width: 100%; width: 100%; } /* Audio ambil lebar penuh */
     }
   </style>
 </head>
@@ -64,7 +73,7 @@
       <div class="logo">🎵 YT Music Clone</div>
       <div class="search-bar">
         <input type="text" id="searchInput" placeholder="Cari lagu, artis, album...">
-        <select id="searchFilter">
+        <select id="searchFilter" class="hidden"> <!-- Disembunyikan di HP biar bar pencarian lebih panjang, bisa dihapus class hiddennya kalo mau -->
           <option value="">Semua</option>
           <option value="songs">Lagu</option>
           <option value="artists">Artis</option>
@@ -76,14 +85,14 @@
     </header>
 
     <div class="main-layout">
-      <!-- Kiri: Hasil Pencarian / Info -->
+      <!-- Kiri/Atas: Hasil Pencarian / Info -->
       <section class="content-area" id="contentArea">
         <h2 id="contentTitle">Selamat Datang!</h2>
         <div id="loading" class="hidden">Memuat data...</div>
         <div id="resultsGrid" class="grid"></div>
       </section>
 
-      <!-- Kanan: Related & Lyrics -->
+      <!-- Kanan/Bawah: Related & Lyrics -->
       <aside class="sidebar">
         <div class="tabs">
           <button class="tab-btn active" onclick="switchTab('related')">Up Next</button>
@@ -193,7 +202,7 @@
 
     // 3. FITUR DOWNLOAD (Memutar Lagu dengan Auto-Fallback)
     async function playSong(videoId, title, thumb) {
-      // Auto-fallback jika videoId null (biasanya dari album)
+      // Auto-fallback jika videoId null
       if (!videoId || videoId === 'null' || videoId === 'undefined') {
         UI.npTitle.innerText = title;
         UI.npArtist.innerText = "Mencari ID lagu...";
@@ -283,11 +292,10 @@
       const title = UI.npTitle.innerText;
       let artist = UI.npArtist.innerText !== "-" ? UI.npArtist.innerText : "";
       
-      // Bersihkan nama artis dari embel-embel "Topic" dll jika ada
+      // Bersihkan nama artis
       artist = artist.replace(" - Topic", "");
 
       try {
-        // Coba LRCLIB API untuk lirik sinkron (LRC)
         const lrcRes = await fetch(`https://lrclib.net/api/get?track_name=${encodeURIComponent(title)}&artist_name=${encodeURIComponent(artist)}`);
         const lrcData = await lrcRes.json();
 
@@ -303,13 +311,13 @@
             p.onclick = () => { UI.audioPlayer.currentTime = line.time; UI.audioPlayer.play(); };
             UI.lyricsContent.appendChild(p);
           });
-          return; // Berhenti jika sukses
+          return; 
         }
       } catch (e) {
         console.log("LRCLIB tidak menemukan lirik, mencoba fallback bawaan...");
       }
 
-      // Fallback ke lirik statis dari API bawaan scraper
+      // Fallback lirik statis
       try {
         const res = await fetch(`/api/lyrics?id=${videoId}`);
         const data = await res.json();
@@ -324,7 +332,7 @@
       }
     }
 
-    // 6. AUDIO PLAYER EVENT: Sinkronisasi lirik yang menyala
+    // 6. AUDIO PLAYER EVENT: Sinkronisasi lirik
     UI.audioPlayer.addEventListener('timeupdate', () => {
       if (syncedLyrics.length === 0) return;
 
